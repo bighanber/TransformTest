@@ -11,12 +11,10 @@ import com.android.build.api.transform.TransformInvocation
 import com.android.build.api.transform.TransformOutputProvider
 import com.android.build.gradle.internal.pipeline.TransformManager
 import com.android.utils.FileUtils
-import com.lll.pluginmodule.annotation.FuncConst
 import javassist.ClassPool
 import javassist.CtClass
 import javassist.CtMethod
 import javassist.bytecode.AnnotationsAttribute
-import javassist.bytecode.AttributeInfo
 import javassist.bytecode.MethodInfo
 import javassist.bytecode.annotation.Annotation
 import javassist.bytecode.annotation.StringMemberValue
@@ -115,26 +113,24 @@ class FunctionTimeTransform extends Transform {
                 Annotation annotation = attr.getAnnotation("com.lll.transformtest.FuncConst")
                 println annotation
                 if (annotation != null) {
-//                    if (ct.isFrozen()) {
-//                        println "233"
-//                    }
                     String text = ((StringMemberValue)annotation.getMemberValue("value")).getValue()
                     println text
-                    cm.insertBefore("System.out.println(System.currentTimeMillis());")
-                    ct.writeFile(filePath)
-                    ct.defrost()
-                    ct.detach()
-//                    cm.insertAfter("{System.out.println(System.currentTimeMillis().toString());}")
+                    cm.insertBefore("System.out.println(\"MethodName: $className - $text; startFuncTime: \" + System.currentTimeMillis());")
+                    cm.insertAfter("System.out.println(\"MethodName: $className - $text; endFuncTime: \" + System.currentTimeMillis());")
                 }
             }
         }
+        ct.writeFile(filePath)
+        ct.defrost()
+        ct.detach()
     }
 
+
     void InsertMethod(InputStream is, String className) {
-        ClassPool pool = ClassPool.getDefault()
-        println("方法名字====" + className)
-        pool.insertClassPath(className)
-        CtClass ct = pool.get(className)
+//        ClassPool pool = ClassPool.getDefault()
+//        println("方法名字====" + className)
+//        pool.insertClassPath(className)
+//        CtClass ct = pool.get(className)
 //        CtMethod[] cms = ct.getDeclaredMethods()
 //        for (CtMethod cm : cms) {
 //            System.out.println("方法名字====" + cm.getName())
@@ -146,9 +142,9 @@ class FunctionTimeTransform extends Transform {
     }
 
     void insertMethodWithJar(JarInput jarInput, TransformOutputProvider out) {
-        File jarFile = jarInput.file
-        ClassPool pool = ClassPool.getDefault()
-        println("方法名字====" + jarFile)
+//        File jarFile = jarInput.file
+//        ClassPool pool = ClassPool.getDefault()
+//        println("方法名字====" + jarFile)
 
     }
 

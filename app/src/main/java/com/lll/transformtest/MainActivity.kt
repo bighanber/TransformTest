@@ -12,8 +12,9 @@ class MainActivity : AppCompatActivity() {
         testFun()
     }
 
-    @FuncConst("2333")
+    @FuncConst("testFun")
     fun testFun() {
+        Thread.sleep(3000)
 //        Log.e("asd", System.currentTimeMillis().toString())
     }
 }
