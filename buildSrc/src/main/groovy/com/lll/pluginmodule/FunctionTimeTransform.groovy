@@ -110,7 +110,7 @@ class FunctionTimeTransform extends Transform {
             AnnotationsAttribute attr = (AnnotationsAttribute)info.getAttribute(AnnotationsAttribute.invisibleTag)
             println attr
             if (attr != null) {
-                Annotation annotation = attr.getAnnotation("com.lll.transformtest.FuncConst")
+                Annotation annotation = attr.getAnnotation("com.example.testmodule.FuncConst")
                 println annotation
                 if (annotation != null) {
                     String text = ((StringMemberValue)annotation.getMemberValue("value")).getValue()

@@ -1,4 +1,4 @@
-package com.lll.transformtest;
+package com.example.testmodule;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
