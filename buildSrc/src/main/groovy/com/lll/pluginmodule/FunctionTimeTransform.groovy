@@ -19,10 +19,13 @@ import javassist.bytecode.MethodInfo
 import javassist.bytecode.annotation.Annotation
 import javassist.bytecode.annotation.StringMemberValue
 import org.apache.commons.codec.digest.DigestUtils
+import org.apache.commons.io.IOUtils
 import org.gradle.api.Project
 
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
+import java.util.jar.JarOutputStream
+import java.util.zip.ZipEntry
 
 class FunctionTimeTransform extends Transform {
 
@@ -81,15 +84,23 @@ class FunctionTimeTransform extends Transform {
                 if (jarInput.name.contains("")) {
                     routeJarInput = jarInput
                 }
-                JarFile jarFile = new JarFile(jarInput.file)
-                Enumeration<JarEntry> enumeration = jarFile.entries()
+                File jarFile = jarInput.file
+//                println "${jarFile.getParent()} - ${jarFile.name}"
+//                def tmp = new File(jarFile.getParent(), jarFile.name + ".tmp")
+//                if (tmp.exists()) tmp.delete()
+                JarFile file = new JarFile(jarInput.file)
+                Enumeration<JarEntry> enumeration = file.entries()
+//                JarOutputStream jos = new JarOutputStream(new FileOutputStream(tmp))
                 while (enumeration.hasMoreElements()) {
                     JarEntry entry = enumeration.nextElement()
                     String entryName = entry.name
                     if (!entryName.endsWith(".class")) continue
-                    String classBame = entryName.substring(0, entryName.length() - 6).replaceAll("/", ".")
-                    InputStream is = jarFile.getInputStream(entry)
-//                    insertMethodWithJar(jarInput, transformInvocation.outputProvider)
+                    ZipEntry zipEntry = new ZipEntry(entryName)
+                    String className = entryName.substring(0, entryName.length() - 6).replaceAll("/", ".")
+//                    InputStream is = file.getInputStream(jarEntry)
+//                    jos.putNextEntry(zipEntry)
+//                    println entryName
+                    insertMethodWithJar(jarFile, className)
                 }
                 copyFile(jarInput, outputProvider)
             }
@@ -125,27 +136,29 @@ class FunctionTimeTransform extends Transform {
         ct.detach()
     }
 
+    void insertMethodWithJar(File jarFile, String className) {
+        ClassPool pool = ClassPool.getDefault()
+        pool.insertClassPath(jarFile.absolutePath)
+        CtClass ct = pool.get(className)
+        CtMethod[] cms = ct.getDeclaredMethods()
+        for (CtMethod cm : cms) {
 
-    void InsertMethod(InputStream is, String className) {
-//        ClassPool pool = ClassPool.getDefault()
-//        println("方法名字====" + className)
-//        pool.insertClassPath(className)
-//        CtClass ct = pool.get(className)
-//        CtMethod[] cms = ct.getDeclaredMethods()
-//        for (CtMethod cm : cms) {
-//            System.out.println("方法名字====" + cm.getName())
-//            MethodInfo info = cm.getMethodInfo()
-//            AnnotationsAttribute attribute = info.getAttribute(AnnotationsAttribute.visibleTag)
-//            System.out.println(attribute)
-//
-//        }
-    }
-
-    void insertMethodWithJar(JarInput jarInput, TransformOutputProvider out) {
-//        File jarFile = jarInput.file
-//        ClassPool pool = ClassPool.getDefault()
-//        println("方法名字====" + jarFile)
-
+            MethodInfo info = cm.getMethodInfo()
+            AnnotationsAttribute attr = (AnnotationsAttribute)info.getAttribute(AnnotationsAttribute.invisibleTag)
+            if (attr != null) {
+                Annotation annotation = attr.getAnnotation("com.example.testmodule.FuncConst")
+                if (annotation != null) {
+                    String text = ((StringMemberValue)annotation.getMemberValue("value")).getValue()
+                    println "jar: " + text
+//                    cm.insertBefore("System.out.println(\"MethodName: $className - $text; startFuncTime: \" + System.currentTimeMillis());")
+//                    cm.insertAfter("System.out.println(\"MethodName: $className - $text; endFuncTime: \" + System.currentTimeMillis());")
+                }
+            }
+        }
+//        byte[] bytes = ct.toBytecode()
+//        ctClass.stopPruning(true)
+//        ctClass.defrost()
+//        return IOUtils.toByteArray(is)
     }
 
 
