@@ -31,10 +31,10 @@ class FunctionTimeTransform extends Transform {
 
     private static final String DEFAULT_NAME = "FunctionTimeTransform"
     private Project mProject
+    private boolean isNeedAddMethod
 
     FunctionTimeTransform(Project project) {
         mProject = project
-        println "hhahaha"
     }
 
     @Override
@@ -60,11 +60,12 @@ class FunctionTimeTransform extends Transform {
     @Override
     void transform(TransformInvocation transformInvocation) throws TransformException, InterruptedException, IOException {
 
+        println "===================================="
         println "enter transform"
+        println "===================================="
         def inputs = transformInvocation.inputs
         def outputProvider = transformInvocation.outputProvider
         outputProvider.deleteAll()
-        def routeJarInput
         for (TransformInput input : inputs) {
             for (DirectoryInput dirInput : input.directoryInputs) {
                 def root = dirInput.file.absolutePath
@@ -81,41 +82,51 @@ class FunctionTimeTransform extends Transform {
             }
 
             for (JarInput jarInput : input.jarInputs) {
-                if (jarInput.name.contains("")) {
-                    routeJarInput = jarInput
-                }
-                File jarFile = jarInput.file
-//                println "${jarFile.getParent()} - ${jarFile.name}"
-//                def tmp = new File(jarFile.getParent(), jarFile.name + ".tmp")
-//                if (tmp.exists()) tmp.delete()
-                JarFile file = new JarFile(jarInput.file)
-                Enumeration<JarEntry> enumeration = file.entries()
-//                JarOutputStream jos = new JarOutputStream(new FileOutputStream(tmp))
-                while (enumeration.hasMoreElements()) {
-                    JarEntry entry = enumeration.nextElement()
-                    String entryName = entry.name
-                    if (!entryName.endsWith(".class")) continue
-                    ZipEntry zipEntry = new ZipEntry(entryName)
-                    String className = entryName.substring(0, entryName.length() - 6).replaceAll("/", ".")
-//                    InputStream is = file.getInputStream(jarEntry)
-//                    jos.putNextEntry(zipEntry)
-//                    println entryName
-                    insertMethodWithJar(jarFile, className)
-                }
                 copyFile(jarInput, outputProvider)
+                if (isNeedAddType(jarInput.name)) {
+                    println "jarInputName - " + jarInput.name
+                    selectClassToInsert(jarInput, transformInvocation.outputProvider)
+                }
             }
         }
     }
 
+    void selectClassToInsert(JarInput jarInput, TransformOutputProvider out) {
+        File jarFile = jarInput.file
+        def tmp = new File(jarFile.getParent(), jarFile.name + ".tmp")
+        if (tmp.exists()) tmp.delete()
+        def file = new JarFile(jarFile)
+        def dest = getDestFile(jarInput, out)
+        Enumeration enumeration = file.entries()
+        JarOutputStream jos = new JarOutputStream(new FileOutputStream(tmp))
+        while (enumeration.hasMoreElements()) {
+            JarEntry jarEntry = enumeration.nextElement()
+            String entryName = jarEntry.name
+            println "entryName - " + entryName
+            if (!entryName.endsWith(".class")) continue
+            String className = entryName.substring(0, entryName.length() - 6).replaceAll("/", ".")
+            ZipEntry zipEntry = new ZipEntry(entryName)
+            InputStream is = file.getInputStream(jarEntry)
+            jos.putNextEntry(zipEntry)
+            jos.write(insertMethodIntoJar(jarFile, className, is))
+            is.close()
+            jos.closeEntry()
+        }
+        jos.close()
+        file.close()
+        if (jarFile.exists()) jarFile.delete()
+        tmp.renameTo(jarFile)
+        FileUtils.copyFile(jarFile, dest)
+    }
+
     void insertMethod(String filePath, String className) {
-//        InsertMethod(new FileInputStream(new File(filePath)), className)
         ClassPool pool = ClassPool.getDefault()
-        println("类名字====" + className + "  " + filePath)
+        println("类名字 - " + className + "  " + filePath)
         pool.insertClassPath(filePath)
         CtClass ct = pool.get(className)
         CtMethod[] cms = ct.getDeclaredMethods()
         for (CtMethod cm : cms) {
-            println "方法名字====" + cm.getName()
+            println "方法名字 - " + cm.getName()
 
             MethodInfo info = cm.getMethodInfo()
             AnnotationsAttribute attr = (AnnotationsAttribute)info.getAttribute(AnnotationsAttribute.invisibleTag)
@@ -136,7 +147,7 @@ class FunctionTimeTransform extends Transform {
         ct.detach()
     }
 
-    void insertMethodWithJar(File jarFile, String className) {
+    byte[] insertMethodIntoJar(File jarFile, String className, InputStream is) {
         ClassPool pool = ClassPool.getDefault()
         pool.insertClassPath(jarFile.absolutePath)
         CtClass ct = pool.get(className)
@@ -148,17 +159,23 @@ class FunctionTimeTransform extends Transform {
             if (attr != null) {
                 Annotation annotation = attr.getAnnotation("com.example.testmodule.FuncConst")
                 if (annotation != null) {
+                    isNeedAddMethod = true
                     String text = ((StringMemberValue)annotation.getMemberValue("value")).getValue()
-                    println "jar: " + text
-//                    cm.insertBefore("System.out.println(\"MethodName: $className - $text; startFuncTime: \" + System.currentTimeMillis());")
-//                    cm.insertAfter("System.out.println(\"MethodName: $className - $text; endFuncTime: \" + System.currentTimeMillis());")
+                    println "isNeedAddMethod - " + text
+                    cm.insertBefore("System.out.println(\"MethodName: $className - $text; startFuncTime: \" + System.currentTimeMillis());")
+                    cm.insertAfter("System.out.println(\"MethodName: $className - $text; endFuncTime: \" + System.currentTimeMillis());")
                 }
             }
         }
-//        byte[] bytes = ct.toBytecode()
-//        ctClass.stopPruning(true)
-//        ctClass.defrost()
-//        return IOUtils.toByteArray(is)
+        if (isNeedAddMethod) {
+            isNeedAddMethod = false
+            byte[] bytes = ct.toBytecode()
+            ct.stopPruning(true)
+            ct.defrost()
+            return bytes
+        }
+
+        return IOUtils.toByteArray(is)
     }
 
 
@@ -166,11 +183,19 @@ class FunctionTimeTransform extends Transform {
         return classPath.substring(root.length() + 1, classPath.length() - 6).replaceAll("/", ".")
     }
 
-    //默认排除
     static final DEFAULT_EXCLUDE = [
             '.*\\.R$',
             '.*\\.R\\$.*$',
             '.*\\.BuildConfig$',
+    ]
+
+    static final DEFAULT_EXCLUDE_TYPE = [
+            '^android\\..*',
+            '^androidx\\..*',
+            '^kotlin\\..*',
+            '^kotlinx\\..*',
+            '^META-INF\\..*',
+            '^org\\..*',
     ]
 
     boolean isSystemClass(String fileName) {
@@ -178,6 +203,13 @@ class FunctionTimeTransform extends Transform {
             if (fileName.matches(exclude)) return true
         }
         return false
+    }
+
+    boolean isNeedAddType(String fileName) {
+        for (def exclude : DEFAULT_EXCLUDE_TYPE) {
+            if (fileName.matches(exclude)) return false
+        }
+        return true
     }
 
     void copyFile(JarInput jarInput, TransformOutputProvider outputProvider) {
