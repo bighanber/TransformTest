@@ -13,6 +13,6 @@ class TestActivity : AppCompatActivity() {
 
     @FuncConst("newFunc")
     fun newFunc() {
-
+        Thread.sleep(1000)
     }
 }

@@ -123,7 +123,10 @@ class FunctionTimeTransform extends Transform {
         ClassPool pool = ClassPool.getDefault()
         println("类名字 - " + className + "  " + filePath)
         pool.insertClassPath(filePath)
+        pool.importPackage("android.os.Trace")
         CtClass ct = pool.get(className)
+//        CtClass ctt = pool.get("android.os.Trace")
+//        println ctt
         CtMethod[] cms = ct.getDeclaredMethods()
         for (CtMethod cm : cms) {
             println "方法名字 - " + cm.getName()
@@ -137,8 +140,10 @@ class FunctionTimeTransform extends Transform {
                 if (annotation != null) {
                     String text = ((StringMemberValue)annotation.getMemberValue("value")).getValue()
                     println text
-                    cm.insertBefore("System.out.println(\"MethodName: $className - $text; startFuncTime: \" + System.currentTimeMillis());")
-                    cm.insertAfter("System.out.println(\"MethodName: $className - $text; endFuncTime: \" + System.currentTimeMillis());")
+//                    cm.insertBefore("System.out.println(\"MethodName: $className - $text; startFuncTime: \" + System.currentTimeMillis());")
+//                    cm.insertAfter("System.out.println(\"MethodName: $className - $text; endFuncTime: \" + System.currentTimeMillis());")
+                    cm.insertBefore("new com.example.testmodule.TraceTag().i(\"$text\");")
+                    cm.insertAfter("new com.example.testmodule.TraceTag().o();")
                 }
             }
         }
@@ -162,8 +167,10 @@ class FunctionTimeTransform extends Transform {
                     isNeedAddMethod = true
                     String text = ((StringMemberValue)annotation.getMemberValue("value")).getValue()
                     println "isNeedAddMethod - " + text
-                    cm.insertBefore("System.out.println(\"MethodName: $className - $text; startFuncTime: \" + System.currentTimeMillis());")
-                    cm.insertAfter("System.out.println(\"MethodName: $className - $text; endFuncTime: \" + System.currentTimeMillis());")
+//                    cm.insertBefore("System.out.println(\"MethodName: $className - $text; startFuncTime: \" + System.currentTimeMillis());")
+//                    cm.insertAfter("System.out.println(\"MethodName: $className - $text; endFuncTime: \" + System.currentTimeMillis());")
+                    cm.insertBefore("new com.example.testmodule.TraceTag().i(\"$text\");")
+                    cm.insertAfter("new com.example.testmodule.TraceTag().o();")
                 }
             }
         }
